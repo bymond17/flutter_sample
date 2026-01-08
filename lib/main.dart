@@ -28,19 +28,14 @@ class MyApp extends StatelessWidget {
 class MyAppState extends ChangeNotifier {
   var current = WordPair.random();
 
-  // 사용자가 좋아요(즐겨찾기)한 단어쌍 목록을 관리
-  var favorites = <WordPair>[];
-
   void getNext() {
     current = WordPair.random();
-    // 새로운 단어쌍을 생성한 후, 화면에 변경사항을 알림
     notifyListeners();
   }
 
   var favorites = <WordPair>[];
 
   void toggleFavorite() {
-      // 현재 단어쌍이 favorites에 있으면 제거, 없으면 추가
     if (favorites.contains(current)) {
       favorites.remove(current);
     } else {
@@ -50,7 +45,76 @@ class MyAppState extends ChangeNotifier {
   }
 }
 
-class MyHomePage extends StatelessWidget {
+// 여러 페이지(탭) 상태를 관리하기 위해 StatefulWidget으로 변경
+class MyHomePage extends StatefulWidget {
+  @override
+  State<MyHomePage> createState() => _MyHomePageState();
+}
+
+// 실제 페이지 상태와 UI를 관리하는 State 클래스
+class _MyHomePageState extends State<MyHomePage> {
+  // 현재 선택된 메뉴 인덱스(0: Home, 1: Favorites)
+  var selectedIndex = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget page;
+    // 선택된 인덱스에 따라 보여줄 페이지 결정
+    switch (selectedIndex) {
+      case 0:
+        page = GeneratorPage(); // 랜덤 단어 생성 페이지
+        break;
+      case 1:
+        page = Placeholder(); // 즐겨찾기 페이지(추후 구현)
+        break;
+      default:
+        throw UnimplementedError('no widget for $selectedIndex');
+    }
+
+    // 화면 크기에 따라 NavigationRail 확장 여부 결정
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Scaffold(
+          body: Row(
+            children: [
+              // 좌측에 메뉴(홈/즐겨찾기) 표시, 선택 시 setState로 상태 변경
+              SafeArea(
+                child: NavigationRail(
+                  extended: constraints.maxWidth >= 600,
+                  destinations: [
+                    NavigationRailDestination(
+                      icon: Icon(Icons.home),
+                      label: Text('Home'),
+                    ),
+                    NavigationRailDestination(
+                      icon: Icon(Icons.favorite),
+                      label: Text('Favorites'),
+                    ),
+                  ],
+                  selectedIndex: selectedIndex,
+                  onDestinationSelected: (value) {
+                    setState(() {
+                      selectedIndex = value; // 선택된 메뉴 인덱스 변경
+                    });
+                  },
+                ),
+              ),
+              Expanded(
+                child: Container(
+                  color: Theme.of(context).colorScheme.primaryContainer,
+                  child: page,
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+    );
+  }
+}
+
+// 기존 랜덤 단어 생성 UI를 별도 위젯으로 분리
+class GeneratorPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     var appState = context.watch<MyAppState>();
@@ -64,37 +128,35 @@ class MyHomePage extends StatelessWidget {
       icon = Icons.favorite_border;
     }
 
-    return Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // 단어쌍을 카드 형태로 보여주는 커스텀 위젯
-            BigCard(pair: pair),
-            SizedBox(height: 10),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // 즐겨찾기 토글 버튼 (아이콘과 텍스트)
-                ElevatedButton.icon(
-                  onPressed: () {
-                    appState.toggleFavorite();
-                  },
-                  icon: Icon(icon),
-                  label: Text('Like'),
-                ),
-
-                // 다음 단어쌍 생성 버튼
-                ElevatedButton(
-                  onPressed: () {
-                    appState.getNext();
-                  },
-                  child: Text('Next'),
-                ),
-              ],
-            ),
-          ],
-        ),
+    // 랜덤 단어 카드와 버튼 UI
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          BigCard(pair: pair),
+          SizedBox(height: 10),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 즐겨찾기 토글 버튼
+              ElevatedButton.icon(
+                onPressed: () {
+                  appState.toggleFavorite();
+                },
+                icon: Icon(icon),
+                label: Text('Like'),
+              ),
+              SizedBox(width: 10),
+              // 다음 단어쌍 생성 버튼
+              ElevatedButton(
+                onPressed: () {
+                  appState.getNext();
+                },
+                child: Text('Next'),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -110,13 +172,11 @@ class BigCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 현재 테마 정보를 가져와서 카드와 텍스트 스타일에 활용
     final theme = Theme.of(context);
     final style = theme.textTheme.displayMedium!.copyWith(
       color: theme.colorScheme.onPrimary,
     );
 
-    // 카드 형태로 단어쌍을 표시 (접근성 레이블 포함)
     return Card(
       color: theme.colorScheme.primary,
       child: Padding(
